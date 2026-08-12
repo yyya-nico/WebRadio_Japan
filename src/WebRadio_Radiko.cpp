@@ -150,40 +150,6 @@ String Radiko :: station_t :: playlist_t :: getUrl() {
   return result;
 }
 
-String Radiko :: station_t :: getProgram() {
-  String title;
-  NetworkClient client;
-  HTTPClient http;
-
-  char url[40 + strlen(area.c_str())];
-  sprintf(url, "http://radiko.jp/v3/program/now/%s.xml", area.c_str());
-  if (http.begin(client, url)) {
-    http.collectHeaders(headerKeys_program, sizeof(headerKeys_program) / sizeof(headerKeys_program[0]));
-    auto httpCode = http.GET();
-    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
-      auto payload = http.getString();
-      
-      if(http.header(headerKeys_program[0]).equalsIgnoreCase("gzip"))
-        payload = uncompress((uint8_t *)(payload.c_str()), payload.length());
-      
-      title = "";
-      String tagF = String("<station id=\"") + (String)id + String("\">");
-      getInner(payload, tagF, "</station>", [&](const String & value) {
-        getInner(value, "<title>", "</title>", [&](const String & value) {
-          if(title.length() == 0)
-            title = htmlDecode(value);
-        }, true);
-      });
-    } else {
-      char bufs[strlen(url) + 10];
-      sprintf(bufs, "%s %d", url, httpCode);
-      getRadiko()->sendLog(bufs, true);
-    }
-    http.end();
-  }
-  return title;
-}
-
 void Radiko :: station_t :: clearPlaylists() {
   for (auto itr : playlists)
     delete itr;
@@ -245,6 +211,16 @@ void Radiko :: setAuthorization(const char * user, const char *pass, const bool 
       nvs_close(nvs_handle);
     }
   }
+}
+
+void Radiko :: setStation(const char * station_id) {
+  for (auto itr : stations)
+    delete itr;
+  stations.clear();
+  auto station = new station_t(this);
+  station->id = String(station_id);
+  stations.push_back(station);
+  select_station = station;
 }
 
 void Radiko :: setLocation(uint8_t pref) {
@@ -396,7 +372,24 @@ bool Radiko :: authenticate(){
     auto httpCode = http.GET();
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
       auto payload = http.getString();
-      area = payload.substring(0, payload.indexOf(","));
+      std::vector<String> elms;
+      size_t offset = 0;
+      String s = payload;
+      String delim = ",";
+      while (true) {
+          size_t next = s.indexOf(delim, offset);
+          if (next == -1) {
+              elms.push_back(s.substring(offset));
+              break;
+          }
+          elms.push_back(s.substring(offset, next));
+          offset = next + 1;
+      }
+      if (elms.size() >= 3) {
+        area = elms[0];
+        area_name = elms[1];
+        area_name_en = elms[2];
+      }
     } else
       onSerious((String("https://radiko.jp/v2/api/auth2 ") + String(httpCode)).c_str());
     http.end();
@@ -405,47 +398,9 @@ bool Radiko :: authenticate(){
   if(!area.length() || !token.length())
     return false;
 
-  if(areaFree && !select_pref && http.begin(clients, "https://radiko.jp/v3/station/region/full.xml")) {
-  auto httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
-    auto stream = http.getStreamPtr();
-    stream->setTimeout(5000);
-    while(stream->find("<station>")) {
-      auto station = new station_t(this);
-      if(stream->find("<id>"))
-        station->id = stream->readStringUntil('<');
-      if(stream->find("<name>"))
-        station->name = htmlDecode(stream->readStringUntil('<'));
-      if(stream->find("<area_id>"))
-        station->area = stream->readStringUntil('<');
-      stations.push_back(station);
-    }
-  } else
-    onSerious((String("https://radiko.jp/v3/station/region/full.xml ") + String(httpCode)).c_str());
-  http.end();
-  } else {
-    if(cookie.length() && select_pref)
-      area = "JP" + String(select_pref);
-    char url[40 + area.length()];
-    sprintf(url, "https://radiko.jp/v2/station/list/%s.xml", area.c_str());
-    if (http.begin(clients, url)) {
-      auto httpCode = http.GET();
-      if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
-          getInner(http.getStreamPtr(), "station", [&](const String & value) {
-            auto station = new station_t(this);
-            getInner(value, "id"         , [station](const String & value) { station->id   = value; });
-            getInner(value, "name"       , [station](const String & value) { station->name = htmlDecode(value); });
-            station->area = area;
-            stations.push_back(station);
-          } );
-      } else
-        onSerious((String(url) + String(" ") + String(httpCode)).c_str());
-      http.end();
-    }
-  }
-
-  if(!stations.size())
-    return false;
+  auto station = new station_t(this);
+  station->id = String("");
+  stations.push_back(station);
   
   return true;
 }
@@ -504,8 +459,7 @@ void Radiko :: downloadTaskCore() {
       sendLog("current_playlist->getChunks(): false", true);
       delay(5000);
       select_station = current_station;
-    } else if(onProgram)
-      onProgram(((station_t *)current_station)->getProgram().c_str());
+    }
     chunk_index = 0;
   }
 
@@ -599,11 +553,8 @@ void Radiko :: decodeTaskCore() {
   }
 }
 
-void Radiko :: saveStationCore(uint32_t nvs_handle, WebRadio::Station * station) {
-  char key[8 + area.length()];
-  sprintf(key, "radiko_%s", area.c_str());
+void Radiko :: saveStationCore(uint32_t nvs_handle, WebRadio::Station * station) {;
   nvs_set_str(nvs_handle, "radiko", ((station_t *)station)->id.c_str());
-  nvs_set_str(nvs_handle, key     , ((station_t *)station)->id.c_str());
 }
 
 WebRadio :: Station * Radiko :: restoreStationCore(uint32_t nvs_handle) {
@@ -611,35 +562,15 @@ WebRadio :: Station * Radiko :: restoreStationCore(uint32_t nvs_handle) {
   size_t length = 0;
   char *value;
 
-  // 同一エリアの前回局
-  char key[8 + area.length()];   
-  sprintf(key, "radiko_%s", area.c_str());
-  nvs_get_str(nvs_handle, key, nullptr, &length);
-  if(length) {
-    value = new char[length];
-    nvs_get_str(nvs_handle, key, value  , &length);
-    for(auto itr : stations) {
-      if(((station_t *)itr)->id.equals(value)) {
-        result = itr;
-        break;
-      }
-    }
-    delete []value;
-  }
-
   // 前回局が存在するか
   length = 0;
   nvs_get_str(nvs_handle, "radiko", nullptr, &length);
   if(length) {
     value = new char[length];
-    nvs_get_str(nvs_handle, "radiko", value  , &length);
-    for(auto itr : stations) {
-      if(((station_t *)itr)->id.equals(value))
-      {
-        result = itr;
-        break;
-      }
-    }
+    nvs_get_str(nvs_handle, "radiko", value , &length);
+    auto station = ((station_t *)stations[0]);
+    station->id = String(value);
+    result = station;
     delete []value;
   }
   return result;  

@@ -33,14 +33,12 @@ class Radiko : public WebRadio {
     class station_t : public WebRadio::Station {
       public:
         String id;
-        String name;
-        String area;
         
         station_t(Radiko* _radiko) : Station(_radiko) {;}
         ~station_t() { dispose(); }
         
         virtual void dispose() override { clearPlaylists(); }
-        virtual const char * getName() override { return name.c_str(); }
+        virtual const char * getName() override { return id.c_str(); }
         virtual bool play() override { getRadiko()->play(this); return true; }
         Radiko * getRadiko() { return (Radiko *)radio; }
         
@@ -86,10 +84,9 @@ class Radiko : public WebRadio {
         };
         
         std::vector<playlist_t *> * getPlaylists();
-        String getProgram();
         
         String toString() {
-          return area + "/" + id + "/" + name;
+          return id;
         }
       private:
           void clearPlaylists();
@@ -99,6 +96,7 @@ class Radiko : public WebRadio {
     
     void setAuthorization(const bool clear = false);
     void setAuthorization(const char * user, const char *pass, const bool save = false);
+    void setStation(const char * station_id);
     void setLocation() { setLocation(0.0F, 0.0F); }
     void setLocation(uint8_t pref);
     void setLocation(float lat, float lon);
@@ -136,6 +134,10 @@ class Radiko : public WebRadio {
     virtual bool RegisterMetadataCB(AudioStatus::metadataCBFn fn, void *data) override;
     virtual bool RegisterStatusCB(AudioStatus::statusCBFn fn, void *data) override;
     String getInfoBuffer();
+    String getStationId() { return current_station ? ((station_t *)current_station)->id : String(""); }
+    String getArea() { return area; }
+    String getAreaName() { return area_name; }
+    String getAreaNameEn() { return area_name_en; }
     
   private:
     AudioFileSource * stream = nullptr;
@@ -153,6 +155,8 @@ class Radiko : public WebRadio {
     
     String token;
     String area;
+    String area_name;
+    String area_name_en;
     
     uint8_t                 select_pref = 0;
     station_t::playlist_t * select_playlist = nullptr;
