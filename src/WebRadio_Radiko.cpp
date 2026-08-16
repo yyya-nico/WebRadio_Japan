@@ -289,6 +289,11 @@ void Radiko :: stop() {
     delete stream;
     stream = nullptr;
   }
+
+  if(current_station) {
+    current_station->dispose();
+    current_station = nullptr;
+  }
   stopDecode = 0;
 }
 

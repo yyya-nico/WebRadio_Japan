@@ -135,7 +135,6 @@ void setup() {
 
   httpd.on("/api/info", HTTP_GET, []() {
     JsonDocument response;
-    response["status"] = "ok";
     response["info"]["area"]["id"] = radio.getArea();
     response["info"]["area"]["name"] = radio.getAreaName();
     response["info"]["area"]["nameEn"] = radio.getAreaNameEn();
@@ -196,7 +195,6 @@ void setup() {
     station->play();
 
     JsonDocument response;
-    response["ok"] = true;
     response["stationId"] = stationId;
 
     sendJson(202, response);
@@ -206,7 +204,7 @@ void setup() {
     radio.stop();
 
     JsonDocument response;
-    response["status"] = "ok";
+    response["stationId"] = radio.getStationId();
 
     sendJson(200, response);
   });
