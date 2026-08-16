@@ -8,6 +8,7 @@
 #define I2S_DOUT 38
 
 #include <WiFi.h>
+#include "config.h"
 #include <WebRadio_Radiko.h>
 #include <AudioOutputI2S.h>
 #include <ArduinoOTA.h>
@@ -99,7 +100,7 @@ void setup() {
 //out.SetPinout(26, 25, 22);  // bck, lrc, dout
 #endif
 
-  WiFi.begin();
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   for(int count = 0; WiFi.status() != WL_CONNECTED; count++) {
     if(count > 300)
       ESP.restart();
