@@ -152,7 +152,7 @@ void setup() {
 
     radio.setStation(stationId);
 
-    auto station = radio.getStation();
+    auto station = radio.getStation(0);
 
     if (station == nullptr) {
       sendJsonError(
