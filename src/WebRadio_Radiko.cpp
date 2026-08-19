@@ -118,7 +118,7 @@ void Radiko :: station_t :: playlist_t :: clearChunks(int clearSize) {
 
 std::vector<Radiko :: station_t :: playlist_t *> * Radiko :: station_t :: getPlaylists() {
   clearPlaylists();
-  playlists.push_back(new Radiko :: station_t :: playlist_t(this, String("https://radiko.jp/v2/api/playlist_create/") + id + String("?l=60") ));
+  playlists.push_back(new Radiko :: station_t :: playlist_t(this, String("https://radiko.jp/v2/api/playlist_create/") + id + String("?l=180") ));
   return &playlists;
 }
 
@@ -402,10 +402,6 @@ bool Radiko :: authenticate(){
 
   if(!area.length() || !token.length())
     return false;
-
-  auto station = new station_t(this);
-  station->id = String("");
-  stations.push_back(station);
   
   return true;
 }
@@ -573,7 +569,7 @@ WebRadio :: Station * Radiko :: restoreStationCore(uint32_t nvs_handle) {
   if(length) {
     value = new char[length];
     nvs_get_str(nvs_handle, "radiko", value , &length);
-    auto station = ((station_t *)stations[0]);
+    auto station = new station_t(this);
     station->id = String(value);
     result = station;
     delete []value;

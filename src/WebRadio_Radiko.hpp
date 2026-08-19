@@ -112,15 +112,11 @@ class Radiko : public WebRadio {
         vTaskSuspend(download_handle);
 #endif
         sendLog("authentication process");
-        auto idx = getIndex(current_station);
-        
         if(!begin()) {
           delay(5000);
           onSerious("failed: radio.begin()");
           for(;;);
         }
-        
-        play(stations[idx]);
 #ifdef SEPARATE_DOWNLOAD_TASK
         vTaskResume(download_handle);
 #endif
