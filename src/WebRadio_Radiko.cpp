@@ -118,7 +118,7 @@ void Radiko :: station_t :: playlist_t :: clearChunks(int clearSize) {
 
 std::vector<Radiko :: station_t :: playlist_t *> * Radiko :: station_t :: getPlaylists() {
   clearPlaylists();
-  playlists.push_back(new Radiko :: station_t :: playlist_t(this, String("https://radiko.jp/v2/api/playlist_create/") + id + String("?l=180") ));
+  playlists.push_back(new Radiko :: station_t :: playlist_t(this, String("https://radiko.jp/v2/api/playlist_create/") + id + String("?l=60") ));
   return &playlists;
 }
 
